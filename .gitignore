@@ -1,0 +1,14 @@
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+backend/src/vendor/
+backend/src/node_modules/
+backend/src/storage/logs/*
+backend/src/.env
+
+backend/mysql_data/
+
+.idea/
+.vscode/
