@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ninja_button.dart';
 import '../widgets/ninja_text_field.dart';
@@ -15,6 +16,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _lastnameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
@@ -23,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _lastnameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -31,9 +34,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _onSubmit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) setState(() => _loading = false);
-    // TODO: conectar backend
+    try {
+      await ApiService.register(
+        name: _nameCtrl.text.trim(),
+        lastname: _lastnameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account created! Please sign in.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo conectar al servidor.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -60,11 +97,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 32),
                         NinjaTextField(
                           controller: _nameCtrl,
-                          placeholder: 'Full Name',
+                          placeholder: 'First Name',
                           prefixIcon: Icons.person_outline,
                           keyboardType: TextInputType.name,
                           validator: (v) => (v == null || v.trim().isEmpty)
                               ? 'Ingresa tu nombre'
+                              : null,
+                        ),
+                        const SizedBox(height: 24),
+                        NinjaTextField(
+                          controller: _lastnameCtrl,
+                          placeholder: 'Last Name',
+                          prefixIcon: Icons.person_outline,
+                          keyboardType: TextInputType.name,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Ingresa tu apellido'
                               : null,
                         ),
                         const SizedBox(height: 24),
@@ -83,8 +130,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           placeholder: 'Password',
                           prefixIcon: Icons.lock_outline,
                           obscureText: _obscurePassword,
-                          validator: (v) => (v == null || v.length < 6)
-                              ? 'Mínimo 6 caracteres'
+                          validator: (v) => (v == null || v.length < 8)
+                              ? 'Mínimo 8 caracteres'
                               : null,
                           suffixIcon: IconButton(
                             icon: Icon(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/session_manager.dart';
 import '../theme/app_theme.dart';
 import 'cart_screen.dart';
+import 'home_screen.dart';
 import 'product_detail_screen.dart';
 import 'ordering_flow_screen.dart';
 
@@ -21,7 +23,12 @@ class _Product {
   });
 }
 
-const _categories = ['All Missions', 'Classics', 'Ninja Specials', 'Sides & Drinks'];
+const _categories = [
+  'All Missions',
+  'Classics',
+  'Ninja Specials',
+  'Sides & Drinks',
+];
 
 const _products = [
   _Product(
@@ -52,7 +59,7 @@ const _products = [
     price: 18.50,
   ),
   _Product(
-    name: 'Leo\'s Veggie Slice',
+    name: "Leo's Veggie Slice",
     description: 'Mushrooms, bell peppers, spinach, artichoke',
     price: 13.00,
   ),
@@ -66,13 +73,26 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedCategory = 0;
   int _navIndex = 0;
+
+  Future<void> _signOut() async {
+    await SessionManager.clear();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.surfaceDim,
+      endDrawer: _buildDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -113,6 +133,129 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  Widget _buildDrawer() {
+    final user = SessionManager.user;
+    final name = user?['name'] as String? ?? 'Guest';
+    final lastname = user?['lastname'] as String? ?? '';
+    final email = user?['email'] as String? ?? '';
+
+    return Drawer(
+      backgroundColor: AppColors.surfaceContainerHighest,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryFixed.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.primaryFixed.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      color: AppColors.primaryFixed,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '$name $lastname'.trim(),
+                    style: GoogleFonts.hankenGrotesk(
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if (email.isNotEmpty)
+                    Text(
+                      email,
+                      style: GoogleFonts.hankenGrotesk(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Menu items
+            const SizedBox(height: 8),
+            _DrawerItem(
+              icon: Icons.home_outlined,
+              label: 'Home',
+              onTap: () => Navigator.pop(context),
+            ),
+            _DrawerItem(
+              icon: Icons.restaurant_menu_outlined,
+              label: 'Menu',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const OrderingFlowScreen()),
+                );
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.shopping_cart_outlined,
+              label: 'Cart',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CartScreen()),
+                );
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              onTap: () => Navigator.pop(context),
+            ),
+
+            const Spacer(),
+
+            // Divider
+            Divider(color: Colors.white.withValues(alpha: 0.05)),
+
+            // Sign out
+            _DrawerItem(
+              icon: Icons.logout,
+              label: 'Sign Out',
+              color: Colors.red.shade400,
+              onTap: () {
+                Navigator.pop(context);
+                _signOut();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -148,7 +291,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           const SizedBox(width: 12),
           IconButton(
             icon: const Icon(Icons.menu, color: AppColors.onSurfaceVariant),
-            onPressed: () {},
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -177,7 +320,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
       child: Stack(
         children: [
-          // Background pizza icon (decorative)
           Positioned(
             right: -20,
             top: -20,
@@ -196,8 +338,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.secondaryContainer
-                        .withValues(alpha: 0.3),
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: AppColors.secondary.withValues(alpha: 0.3),
@@ -262,8 +403,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  AppColors.primaryFixed.withValues(alpha: 0.3),
+                              color: AppColors.primaryFixed
+                                  .withValues(alpha: 0.3),
                               blurRadius: 12,
                             ),
                           ],
@@ -327,7 +468,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ],
             ),
           ),
-          Icon(Icons.chevron_right,
+          const Icon(Icons.chevron_right,
               color: AppColors.onSurfaceVariant, size: 20),
         ],
       ),
@@ -364,7 +505,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: AppColors.primaryFixed.withValues(alpha: 0.25),
+                          color:
+                              AppColors.primaryFixed.withValues(alpha: 0.25),
                           blurRadius: 10,
                         ),
                       ]
@@ -441,11 +583,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
               return GestureDetector(
                 onTap: () {
                   if (i == 2) {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const CartScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
                   } else if (i == 1) {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const OrderingFlowScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const OrderingFlowScreen()),
+                    );
                   } else {
                     setState(() => _navIndex = i);
                   }
@@ -484,6 +631,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 }
 
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.onSurface;
+    return ListTile(
+      leading: Icon(icon, color: c, size: 22),
+      title: Text(
+        label,
+        style: GoogleFonts.hankenGrotesk(
+          color: c,
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
+        ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+}
+
 class _ProductCard extends StatelessWidget {
   final _Product product;
   const _ProductCard({required this.product});
@@ -502,7 +682,6 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image area
           Expanded(
             child: Stack(
               children: [
@@ -553,7 +732,6 @@ class _ProductCard extends StatelessWidget {
               ],
             ),
           ),
-          // Info area
           Padding(
             padding: const EdgeInsets.all(10),
             child: Column(

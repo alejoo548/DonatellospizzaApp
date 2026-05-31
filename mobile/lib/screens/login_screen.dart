@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
+import '../services/session_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ninja_button.dart';
 import '../widgets/ninja_text_field.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 import 'products_screen.dart';
 
@@ -18,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -26,18 +30,54 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _onLogin() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _loading = true);
+    try {
+      final data = await ApiService.login(
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      );
+      await SessionManager.save(
+        token: data['token'] as String,
+        user: data['user'] as Map<String, dynamic>,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ProductsScreen()),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo conectar al servidor.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surfaceDim,
       body: Stack(
         children: [
-          // Dot pattern background
           Positioned.fill(child: _DotPattern()),
           SafeArea(
             child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
@@ -64,8 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           placeholder: 'Password',
                           prefixIcon: Icons.lock_outline,
                           obscureText: _obscurePassword,
-                          validator: (v) => (v == null || v.length < 6)
-                              ? 'Mínimo 6 caracteres'
+                          validator: (v) => (v == null || v.length < 8)
+                              ? 'Mínimo 8 caracteres'
                               : null,
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -76,16 +116,22 @@ class _LoginScreenState extends State<LoginScreen> {
                               size: 20,
                             ),
                             onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            ),
                             child: Text(
-                              'Forgot Code?',
+                              'Forgot Password?',
                               style: GoogleFonts.hankenGrotesk(
                                 color: AppColors.primaryFixed,
                                 fontWeight: FontWeight.w600,
@@ -95,44 +141,78 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        NinjaButton(
-                          label: 'Access Network',
-                          onPressed: () {
-                            if (_formKey.currentState?.validate() ?? false) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const ProductsScreen()),
-                              );
-                            }
-                          },
-                        ),
+                        _loading
+                            ? Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryFixed,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.onPrimaryFixed,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'CONNECTING...',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        color: AppColors.onPrimaryFixed,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : NinjaButton(
+                                label: 'Access Network',
+                                onPressed: _onLogin,
+                              ),
                         const SizedBox(height: 24),
-                        Row(children: [
-                          Expanded(
+                        Row(
+                          children: [
+                            Expanded(
                               child: Divider(
-                                  color: Colors.white.withValues(alpha: 0.05))),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'OR',
-                              style: GoogleFonts.hankenGrotesk(
-                                  color: AppColors.onSurfaceVariant,
-                                  fontSize: 12),
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
                             ),
-                          ),
-                          Expanded(
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                'OR',
+                                style: GoogleFonts.hankenGrotesk(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Expanded(
                               child: Divider(
-                                  color: Colors.white.withValues(alpha: 0.05))),
-                        ]),
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 24),
                         NinjaButton(
                           label: 'Create Account',
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const RegisterScreen()),
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           ),
                           variant: NinjaButtonVariant.ghost,
                         ),
@@ -174,7 +254,9 @@ class _LoginScreenState extends State<LoginScreen> {
             color: AppColors.surfaceContainerHigh,
             shape: BoxShape.circle,
             border: Border.all(
-                color: AppColors.primaryFixed.withValues(alpha: 0.2), width: 1),
+              color: AppColors.primaryFixed.withValues(alpha: 0.2),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primaryFixed.withValues(alpha: 0.1),
@@ -182,8 +264,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          child: const Icon(Icons.local_pizza,
-              color: AppColors.primaryFixed, size: 30),
+          child: const Icon(
+            Icons.local_pizza,
+            color: AppColors.primaryFixed,
+            size: 30,
+          ),
         ),
         const SizedBox(height: 24),
         Text(
@@ -249,9 +334,7 @@ class _LoginScreenState extends State<LoginScreen> {
 class _DotPattern extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _DotPatternPainter(),
-    );
+    return CustomPaint(painter: _DotPatternPainter());
   }
 }
 

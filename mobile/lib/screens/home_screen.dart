@@ -4,10 +4,6 @@ import '../theme/app_theme.dart';
 import '../widgets/ninja_button.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
-import 'cart_screen.dart';
-import 'products_screen.dart';
-import 'ordering_flow_screen.dart';
-import 'product_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -19,57 +15,33 @@ class HomeScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _DotPatternPainter(),
-            ),
+            child: CustomPaint(painter: _DotPatternPainter()),
           ),
           SafeArea(
             child: SingleChildScrollView(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 48),
                       _buildHero(),
-                      const SizedBox(height: 56),
-                      Text(
-                        'FORMULARIOS',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.hankenGrotesk(
-                          color: AppColors.onSurfaceVariant,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 72),
                       NinjaButton(
-                        label: 'Página Principal (Productos)',
-                        icon: Icons.storefront_outlined,
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ProductsScreen()),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      NinjaButton(
-                        label: 'Iniciar Sesión',
+                        label: 'Sign In',
                         icon: Icons.login,
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                               builder: (_) => const LoginScreen()),
                         ),
-                        variant: NinjaButtonVariant.ghost,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       NinjaButton(
-                        label: 'Crear Cuenta',
+                        label: 'Create Account',
                         icon: Icons.person_add_outlined,
                         onPressed: () => Navigator.push(
                           context,
@@ -78,38 +50,17 @@ class HomeScreen extends StatelessWidget {
                         ),
                         variant: NinjaButtonVariant.ghost,
                       ),
-                      const SizedBox(height: 14),
-                      NinjaButton(
-                        label: 'Ver Carrito',
-                        icon: Icons.shopping_cart_outlined,
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const CartScreen()),
+                      const SizedBox(height: 48),
+                      Center(
+                        child: Text(
+                          'By continuing you agree to our Terms of Service.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.hankenGrotesk(
+                            color:
+                                AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                            fontSize: 11,
+                          ),
                         ),
-                        variant: NinjaButtonVariant.ghost,
-                      ),
-                      const SizedBox(height: 14),
-                      NinjaButton(
-                        label: 'Menú (Ordering Flow)',
-                        icon: Icons.restaurant_menu_outlined,
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const OrderingFlowScreen()),
-                        ),
-                        variant: NinjaButtonVariant.ghost,
-                      ),
-                      const SizedBox(height: 14),
-                      NinjaButton(
-                        label: 'Detalle Producto',
-                        icon: Icons.local_pizza_outlined,
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ProductDetailScreen()),
-                        ),
-                        variant: NinjaButtonVariant.ghost,
                       ),
                     ],
                   ),
@@ -126,8 +77,8 @@ class HomeScreen extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 88,
+          height: 88,
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerHigh,
             shape: BoxShape.circle,
@@ -137,20 +88,21 @@ class HomeScreen extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryFixed.withValues(alpha: 0.1),
-                blurRadius: 20,
+                color: AppColors.primaryFixed.withValues(alpha: 0.12),
+                blurRadius: 32,
+                spreadRadius: 4,
               ),
             ],
           ),
           child: const Icon(Icons.local_pizza,
-              color: AppColors.primaryFixed, size: 40),
+              color: AppColors.primaryFixed, size: 44),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
         Text(
           "DONATELLO'S",
           textAlign: TextAlign.center,
           style: GoogleFonts.anybody(
-            fontSize: 34,
+            fontSize: 38,
             fontWeight: FontWeight.w800,
             color: AppColors.primary,
             letterSpacing: 1,
@@ -162,7 +114,7 @@ class HomeScreen extends StatelessWidget {
           'PIZZA',
           textAlign: TextAlign.center,
           style: GoogleFonts.anybody(
-            fontSize: 34,
+            fontSize: 38,
             fontWeight: FontWeight.w800,
             color: AppColors.primaryFixed,
             letterSpacing: 1,
@@ -170,13 +122,35 @@ class HomeScreen extends StatelessWidget {
             fontStyle: FontStyle.italic,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Text(
           'Vigilante Hospitality',
+          textAlign: TextAlign.center,
           style: GoogleFonts.hankenGrotesk(
             color: AppColors.onSurfaceVariant,
-            fontSize: 13,
-            letterSpacing: 1,
+            fontSize: 14,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: AppColors.primaryFixed.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            'Order fast. Stay in the shadows.',
+            style: GoogleFonts.hankenGrotesk(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 12,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ],
