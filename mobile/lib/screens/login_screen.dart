@@ -95,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Icons.mail_outline,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) => (v == null || !v.contains('@'))
-                              ? 'Correo inválido'
+                              ? 'Invalid email'
                               : null,
                         ),
                         const SizedBox(height: 24),
@@ -104,9 +104,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           placeholder: 'Password',
                           prefixIcon: Icons.lock_outline,
                           obscureText: _obscurePassword,
-                          validator: (v) => (v == null || v.length < 8)
-                              ? 'Mínimo 8 caracteres'
-                              : null,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Enter your password';
+                            }
+                            return null;
+                          },
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword

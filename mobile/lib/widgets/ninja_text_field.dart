@@ -10,6 +10,7 @@ class NinjaTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final bool enabled;
 
   const NinjaTextField({
     super.key,
@@ -20,12 +21,14 @@ class NinjaTextField extends StatelessWidget {
     this.suffixIcon,
     this.keyboardType,
     this.validator,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
