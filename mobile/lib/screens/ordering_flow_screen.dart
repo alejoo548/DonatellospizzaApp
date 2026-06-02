@@ -3,49 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
-
-class _MenuItem {
-  final String name;
-  final String description;
-  final double price;
-  final bool isBestSeller;
-  final bool isSpicy;
-
-  const _MenuItem({
-    required this.name,
-    required this.description,
-    required this.price,
-    this.isBestSeller = false,
-    this.isSpicy = false,
-  });
-}
-
-const _menuItems = [
-  _MenuItem(
-    name: 'Katana Pepperoni',
-    description: 'Double-sliced pepperoni, aged mozzarella, signature tomato reduction',
-    price: 24.00,
-    isBestSeller: true,
-  ),
-  _MenuItem(
-    name: "Splinter's Veggie",
-    description: 'Roasted peppers, mushrooms, olives, basil',
-    price: 22.00,
-  ),
-  _MenuItem(
-    name: "Shredder's Heat",
-    description: 'Spicy sausage, jalapeños, habanero honey, four cheeses',
-    price: 26.00,
-    isSpicy: true,
-  ),
-  _MenuItem(
-    name: 'Technodrome Classic',
-    description: 'Simple perfection. Buffalo mozzarella, heirloom tomatoes, olive oil',
-    price: 19.00,
-  ),
-];
-
-const _filterTabs = ['All Meat', 'Veggie', 'Spicy'];
+import '../services/api_service.dart';
 
 class OrderingFlowScreen extends StatefulWidget {
   const OrderingFlowScreen({super.key});
@@ -58,14 +16,42 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
   int _selectedFilter = 0;
   int _navIndex = 1;
 
-  List<_MenuItem> get _filteredItems {
-    switch (_selectedFilter) {
-      case 1:
-        return _menuItems.where((m) => !m.isSpicy && m.name.toLowerCase().contains('veggi')).toList();
-      case 2:
-        return _menuItems.where((m) => m.isSpicy).toList();
-      default:
-        return _menuItems;
+  bool _loading = true;
+  List<dynamic> _categories = [];
+  List<dynamic> _products = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMenu();
+  }
+
+  List<dynamic> get _filteredProducts {
+    if (_selectedFilter == 0) return _products;
+
+    final selectedCategory = _categories[_selectedFilter - 1];
+
+    return _products.where((product) {
+      return product['category_id'] == selectedCategory['id'];
+    }).toList();
+  }
+
+  Future<void> _loadMenu() async {
+    try {
+      final categoriesData = await ApiService.getCategories();
+      final productsData = await ApiService.getProducts();
+
+      setState(() {
+        _categories = categoriesData['categories'];
+        _products = productsData['products'];
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+      });
+
+      print(e);
     }
   }
 
@@ -88,7 +74,10 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     const SizedBox(height: 20),
                     _buildFilterChips(),
                     const SizedBox(height: 20),
-                    ..._filteredItems.map(_buildMenuItem),
+                    if (_loading)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      ..._filteredProducts.map(_buildMenuItem),
                     const SizedBox(height: 24),
                     _buildDeliveryBanner(),
                     const SizedBox(height: 24),
@@ -110,14 +99,18 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
         color: AppColors.surfaceDim.withValues(alpha: 0.8),
         border: Border(
           bottom: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05), width: 1),
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1,
+          ),
         ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back,
-                color: AppColors.onSurfaceVariant),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: AppColors.onSurfaceVariant,
+            ),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -134,8 +127,10 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.search_outlined,
-                color: AppColors.onSurfaceVariant),
+            icon: const Icon(
+              Icons.search_outlined,
+              color: AppColors.onSurfaceVariant,
+            ),
             onPressed: () {},
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -172,42 +167,33 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
   }
 
   Widget _buildFilterChips() {
+    final tabs = [
+      {'id': 0, 'name': 'All'},
+      ..._categories,
+    ];
+
     return SizedBox(
       height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _filterTabs.length,
+        itemCount: tabs.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final selected = _selectedFilter == i;
+
           return GestureDetector(
             onTap: () => setState(() => _selectedFilter = i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.primaryFixed
                     : AppColors.surfaceContainer,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: selected
-                      ? AppColors.primaryFixed
-                      : AppColors.outlineVariant.withValues(alpha: 0.3),
-                ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color:
-                              AppColors.primaryFixed.withValues(alpha: 0.25),
-                          blurRadius: 10,
-                        )
-                      ]
-                    : null,
               ),
               child: Text(
-                _filterTabs[i],
+                tabs[i]['name'].toString(),
                 style: GoogleFonts.hankenGrotesk(
                   color: selected
                       ? AppColors.onPrimaryFixed
@@ -223,15 +209,17 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
     );
   }
 
-  Widget _buildMenuItem(_MenuItem item) {
+  Widget _buildMenuItem(dynamic item) {
+    final price = double.parse(item['price'].toString());
+    final imageUrl = ApiService.productImage(item['image'].toString(),);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ProductDetailScreen(
-            name: item.name,
-            description: item.description,
-            basePrice: item.price,
+            name: item['name'],
+            description: item['description'],
+            basePrice: price,
           ),
         ),
       ),
@@ -255,10 +243,19 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                 color: AppColors.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                Icons.local_pizza,
-                color: AppColors.primaryFixed.withValues(alpha: 0.4),
-                size: 36,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.image_not_supported,
+                      color: AppColors.primaryFixed.withValues(alpha: 0.4),
+                      size: 36,
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -270,7 +267,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          item.name,
+                          item['name'],
                           style: GoogleFonts.hankenGrotesk(
                             color: AppColors.onSurface,
                             fontWeight: FontWeight.w600,
@@ -278,19 +275,11 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                           ),
                         ),
                       ),
-                      if (item.isBestSeller)
-                        _Chip(
-                            label: 'Best Seller',
-                            color: AppColors.secondary),
-                      if (item.isSpicy)
-                        _Chip(
-                            label: '🌶 Spicy',
-                            color: const Color(0xFFFF6B35)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.description,
+                    item['description'],
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.hankenGrotesk(
@@ -304,7 +293,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$${item.price.toStringAsFixed(2)}',
+                        '\$${price.toStringAsFixed(2)}',
                         style: GoogleFonts.anybody(
                           color: AppColors.primaryFixed,
                           fontWeight: FontWeight.w700,
@@ -316,29 +305,35 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => ProductDetailScreen(
-                              name: item.name,
-                              description: item.description,
-                              basePrice: item.price,
+                              name: item['name'],
+                              description: item['description'],
+                              basePrice: price,
                             ),
                           ),
                         ),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceContainerHigh,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: AppColors.primaryFixed
-                                  .withValues(alpha: 0.3),
+                              color: AppColors.primaryFixed.withValues(
+                                alpha: 0.3,
+                              ),
                               width: 1,
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.shopping_cart_outlined,
-                                  color: AppColors.primaryFixed, size: 14),
+                              const Icon(
+                                Icons.shopping_cart_outlined,
+                                color: AppColors.primaryFixed,
+                                size: 14,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Add to Order',
@@ -407,8 +402,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.primaryFixed,
               borderRadius: BorderRadius.circular(10),
@@ -459,7 +453,9 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
         color: AppColors.surfaceContainerHighest,
         border: Border(
           top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05), width: 1),
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1,
+          ),
         ),
       ),
       child: SafeArea(
@@ -472,8 +468,10 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
               return GestureDetector(
                 onTap: () {
                   if (i == 2) {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const CartScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
                   } else {
                     setState(() => _navIndex = i);
                   }
@@ -506,33 +504,6 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
               );
             }),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Chip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(left: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.hankenGrotesk(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

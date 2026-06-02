@@ -26,6 +26,12 @@ class ApiService {
     defaultValue: _defaultBaseUrl,
   );
 
+  static const String imageBaseUrl ='http://192.168.1.13:8000/storage';
+
+  static String productImage(String path) {
+    return '$imageBaseUrl/$path';
+  }
+
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -39,16 +45,13 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final response = await _post(
-      '/register',
-      {
-        'name': name,
-        'lastname': lastname,
-        'email': email,
-        'password': password,
-        'password_confirmation': password,
-      },
-    );
+    final response = await _post('/register', {
+      'name': name,
+      'lastname': lastname,
+      'email': email,
+      'password': password,
+      'password_confirmation': password,
+    });
 
     final body = _decodeBody(response);
 
@@ -62,10 +65,10 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final response = await _post(
-      '/login',
-      {'email': email, 'password': password},
-    );
+    final response = await _post('/login', {
+      'email': email,
+      'password': password,
+    });
 
     final body = _decodeBody(response);
 
@@ -136,15 +139,10 @@ class ApiService {
         return decoded;
       }
     } on FormatException {
-      return {
-        'message': _defaultMessageFor(response),
-        'raw': response.body,
-      };
+      return {'message': _defaultMessageFor(response), 'raw': response.body};
     }
 
-    return {
-      'message': _defaultMessageFor(response),
-    };
+    return {'message': _defaultMessageFor(response)};
   }
 
   static String _defaultMessageFor(http.Response response) {
@@ -152,7 +150,7 @@ class ApiService {
       return 'El servidor devolvio un error interno.';
     }
 
-    return 'La solicitud no pudo completarse.';
+    return 'The request could not be completed.';
   }
 
   static List<String> _candidateBaseUrls() {
@@ -190,11 +188,56 @@ class ApiService {
             .timeout(_requestTimeout);
       } on SocketException {
         lastNetworkError = ApiException(
-          'No se pudo conectar a $baseUrl. La app intentara otra ruta de desarrollo si esta disponible.',
+          'Could not connect to $baseUrl. The app will try another development path if one is available.',
         );
       } on TimeoutException {
         lastNetworkError = ApiException(
           'El servidor tardo demasiado en responder ($baseUrl$path).',
+        );
+      } on http.ClientException catch (e) {
+        lastNetworkError = ApiException(
+          'Error de red en $baseUrl: ${e.message}',
+        );
+      }
+    }
+
+    throw lastNetworkError ??
+        ApiException('The request could not be completed.');
+  }
+
+  static Future<Map<String, dynamic>> getCategories() async {
+    final response = await _get('/categories');
+    final body = _decodeBody(response);
+
+    if (response.statusCode == 200) return body;
+
+    final msg = body['message'] as String? ?? _defaultMessageFor(response);
+    throw ApiException(msg, errors: body['errors'] as Map<String, dynamic>?);
+  }
+
+  static Future<Map<String, dynamic>> getProducts() async {
+    final response = await _get('/products');
+    final body = _decodeBody(response);
+
+    if (response.statusCode == 200) return body;
+
+    final msg = body['message'] as String? ?? _defaultMessageFor(response);
+    throw ApiException(msg, errors: body['errors'] as Map<String, dynamic>?);
+  }
+
+  static Future<http.Response> _get(String path) async {
+    ApiException? lastNetworkError;
+
+    for (final baseUrl in _candidateBaseUrls()) {
+      try {
+        return await http
+            .get(Uri.parse('$baseUrl$path'), headers: _headers)
+            .timeout(_requestTimeout);
+      } on SocketException {
+        lastNetworkError = ApiException('No se pudo conectar a $baseUrl.');
+      } on TimeoutException {
+        lastNetworkError = ApiException(
+          'El servidor tardó demasiado en responder ($baseUrl$path).',
         );
       } on http.ClientException catch (e) {
         lastNetworkError = ApiException(
