@@ -8,6 +8,7 @@ class ProductDetailScreen extends StatefulWidget {
   final String description;
   final double basePrice;
   final String? image;
+  final int? categoryId;
 
   const ProductDetailScreen({
     super.key,
@@ -16,6 +17,7 @@ class ProductDetailScreen extends StatefulWidget {
         "A masterclass in flavor. Pepperoni, Italian sausage, mushrooms, olives, and a drizzle of secret ooze sauce.",
     this.basePrice = 24.00,
     this.image,
+    this.categoryId,
   });
 
   @override
@@ -27,6 +29,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _selectedCrust = 0; // 0=NYC Thin, 1=Sewer Deep Dish
   int _quantity = 1;
   bool _isFavorite = false;
+  bool get _isPizzaCategory => widget.categoryId == 2;
 
   static const _sizes = [
     (label: 'Personal', sub: '10"', extra: 0.0),
@@ -39,11 +42,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     (label: 'Sewer-Deep Dish', extra: 3.0),
   ];
 
-  double get _total =>
-      (widget.basePrice +
-          _sizes[_selectedSize].extra +
-          _crusts[_selectedCrust].extra) *
-      _quantity;
+  double get _total {
+    if (!_isPizzaCategory) {
+      return widget.basePrice * _quantity;
+    }
+
+    return (widget.basePrice +
+            _sizes[_selectedSize].extra +
+            _crusts[_selectedCrust].extra) *
+        _quantity;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +60,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDim.withValues(alpha: 0.8),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back,
-              color: AppColors.onSurfaceVariant),
+          icon: const Icon(Icons.arrow_back, color: AppColors.onSurfaceVariant),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -69,7 +76,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           IconButton(
             icon: Icon(
               _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.redAccent : AppColors.onSurfaceVariant,
+              color: _isFavorite
+                  ? Colors.redAccent
+                  : AppColors.onSurfaceVariant,
             ),
             onPressed: () => setState(() => _isFavorite = !_isFavorite),
           ),
@@ -91,10 +100,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       children: [
                         _buildProductInfo(),
                         const SizedBox(height: 28),
-                        _buildSizeSelector(),
-                        const SizedBox(height: 24),
-                        _buildCrustSelector(),
-                        const SizedBox(height: 24),
+                        if (_isPizzaCategory) ...[
+                          _buildSizeSelector(),
+                          const SizedBox(height: 24),
+                          _buildCrustSelector(),
+                          const SizedBox(height: 24),
+                        ],
                         _buildQuantityControl(),
                         const SizedBox(height: 16),
                       ],
@@ -111,33 +122,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildHeroImage() {
-  final imageUrl = widget.image != null && widget.image!.isNotEmpty
-      ? ApiService.productImage(widget.image!)
-      : null;
+    final imageUrl = widget.image != null && widget.image!.isNotEmpty
+        ? ApiService.productImage(widget.image!)
+        : null;
 
-  return Container(
-    height: 240,
-    width: double.infinity,
-    color: AppColors.surfaceContainerHigh,
-    child: imageUrl != null
-        ? Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(
-                Icons.image_not_supported,
-                size: 120,
-                color: AppColors.primaryFixed.withValues(alpha: 0.4),
-              );
-            },
-          )
-        : Icon(
-            Icons.local_pizza,
-            size: 120,
-            color: AppColors.primaryFixed.withValues(alpha: 0.4),
-          ),
-  );
-}
+    return Container(
+      height: 240,
+      width: double.infinity,
+      color: AppColors.surfaceContainerHigh,
+      child: imageUrl != null
+          ? Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.image_not_supported,
+                  size: 120,
+                  color: AppColors.primaryFixed.withValues(alpha: 0.4),
+                );
+              },
+            )
+          : Icon(
+              Icons.local_pizza,
+              size: 120,
+              color: AppColors.primaryFixed.withValues(alpha: 0.4),
+            ),
+    );
+  }
 
   Widget _buildProductInfo() {
     return Column(
@@ -214,11 +225,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(Icons.local_pizza,
-                          color: selected
-                              ? AppColors.primaryFixed
-                              : AppColors.onSurfaceVariant,
-                          size: 20 + i * 4.0),
+                      Icon(
+                        Icons.local_pizza,
+                        color: selected
+                            ? AppColors.primaryFixed
+                            : AppColors.onSurfaceVariant,
+                        size: 20 + i * 4.0,
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         s.label,
@@ -272,8 +285,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               margin: const EdgeInsets.only(bottom: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.primaryFixed.withValues(alpha: 0.1)
@@ -305,8 +317,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           : Colors.transparent,
                     ),
                     child: selected
-                        ? const Icon(Icons.check,
-                            color: AppColors.onPrimaryFixed, size: 11)
+                        ? const Icon(
+                            Icons.check,
+                            color: AppColors.onPrimaryFixed,
+                            size: 11,
+                          )
                         : null,
                   ),
                   const SizedBox(width: 12),
@@ -350,14 +365,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             color: AppColors.surfaceContainer,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.05), width: 1),
+              color: Colors.white.withValues(alpha: 0.05),
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.remove,
-                    color: AppColors.onSurfaceVariant, size: 18),
+                icon: const Icon(
+                  Icons.remove,
+                  color: AppColors.onSurfaceVariant,
+                  size: 18,
+                ),
                 onPressed: () =>
                     setState(() => _quantity > 1 ? _quantity-- : null),
                 padding: const EdgeInsets.all(8),
@@ -375,8 +395,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add,
-                    color: AppColors.onSurfaceVariant, size: 18),
+                icon: const Icon(
+                  Icons.add,
+                  color: AppColors.onSurfaceVariant,
+                  size: 18,
+                ),
                 onPressed: () => setState(() => _quantity++),
                 padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(),
@@ -407,7 +430,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         color: AppColors.surfaceContainerHighest.withValues(alpha: 0.95),
         border: Border(
           top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05), width: 1),
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1,
+          ),
         ),
       ),
       child: GestureDetector(
@@ -428,8 +453,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.electric_moped,
-                  color: AppColors.onPrimaryFixed, size: 22),
+              const Icon(
+                Icons.electric_moped,
+                color: AppColors.onPrimaryFixed,
+                size: 22,
+              ),
               const SizedBox(width: 10),
               Text(
                 'ADD TO MISSION',
@@ -442,8 +470,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               const SizedBox(width: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.onPrimaryFixed.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),

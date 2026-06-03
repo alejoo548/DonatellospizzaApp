@@ -13,12 +13,21 @@ class OrderingFlowScreen extends StatefulWidget {
 }
 
 class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
+  final TextEditingController _searchController = TextEditingController();
   int _selectedFilter = 0;
   int _navIndex = 1;
+  String _searchQuery = '';
+  bool _isSearching = false;
 
   bool _loading = true;
   List<dynamic> _categories = [];
   List<dynamic> _products = [];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -42,8 +51,8 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
       final productsData = await ApiService.getProducts();
 
       setState(() {
-        _categories = categoriesData['categories'];
-        _products = productsData['products'];
+        _categories = categoriesData['categories'] ?? [];
+        _products = productsData['products'] ?? [];
         _loading = false;
       });
     } catch (e) {
@@ -57,6 +66,12 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredProducts = _filteredProducts.where((product) {
+      final name = product['name'].toString().toLowerCase();
+      final description = product['description'].toString().toLowerCase();
+
+      return name.contains(_searchQuery) || description.contains(_searchQuery);
+    }).toList();
     return Scaffold(
       backgroundColor: AppColors.surfaceDim,
       body: SafeArea(
@@ -77,7 +92,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     if (_loading)
                       const Center(child: CircularProgressIndicator())
                     else
-                      ..._filteredProducts.map(_buildMenuItem),
+                      ...filteredProducts.map(_buildMenuItem),
                     const SizedBox(height: 24),
                     _buildDeliveryBanner(),
                     const SizedBox(height: 24),
@@ -127,11 +142,20 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(
-              Icons.search_outlined,
+            icon: Icon(
+              _isSearching ? Icons.close : Icons.search_outlined,
               color: AppColors.onSurfaceVariant,
             ),
-            onPressed: () {},
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -162,6 +186,26 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             fontSize: 14,
           ),
         ),
+        if (_isSearching)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search products...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -211,7 +255,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
 
   Widget _buildMenuItem(dynamic item) {
     final price = double.parse(item['price'].toString());
-    final imageUrl = ApiService.productImage(item['image'].toString(),);
+    final imageUrl = ApiService.productImage(item['image'].toString());
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -221,6 +265,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             description: item['description'],
             basePrice: price,
             image: item['image'],
+            categoryId: item['category_id'],
           ),
         ),
       ),
@@ -310,6 +355,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                               description: item['description'],
                               basePrice: price,
                               image: item['image'],
+                              categoryId: item['category_id'],
                             ),
                           ),
                         ),
