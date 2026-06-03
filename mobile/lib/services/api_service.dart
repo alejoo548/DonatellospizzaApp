@@ -25,11 +25,15 @@ class ApiService {
     'API_BASE_URL',
     defaultValue: _defaultBaseUrl,
   );
-
-  static const String imageBaseUrl ='http://192.168.1.13:8000/storage';
+  static const String _defaultImageBaseUrl = 'http://192.168.1.13:8000/storage';
+  static const String _configuredImageBaseUrl = String.fromEnvironment(
+    'IMAGE_BASE_URL',
+    defaultValue: _defaultImageBaseUrl,
+  );
 
   static String productImage(String path) {
-    return '$imageBaseUrl/$path';
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    return '$_configuredImageBaseUrl/$normalizedPath';
   }
 
   static const Map<String, String> _headers = {
@@ -156,21 +160,22 @@ class ApiService {
   static List<String> _candidateBaseUrls() {
     final urls = <String>[_configuredBaseUrl];
 
-    if (Platform.isAndroid && _configuredBaseUrl == _defaultBaseUrl) {
+    if (Platform.isAndroid) {
       for (final url in [
-        _lanBaseUrl,
         _androidReverseBaseUrl,
         _androidEmulatorFallbackBaseUrl,
+        _lanBaseUrl,
       ]) {
         if (!urls.contains(url)) {
           urls.add(url);
         }
       }
+    } else if (!urls.contains(_lanBaseUrl)) {
+      urls.add(_lanBaseUrl);
     }
 
     return urls;
   }
-
   static Future<http.Response> _post(
     String path,
     Map<String, dynamic> payload,

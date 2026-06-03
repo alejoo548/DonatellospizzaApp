@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../services/api_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String name;
   final String description;
   final double basePrice;
+  final String? image;
 
   const ProductDetailScreen({
     super.key,
@@ -13,6 +15,7 @@ class ProductDetailScreen extends StatefulWidget {
     this.description =
         "A masterclass in flavor. Pepperoni, Italian sausage, mushrooms, olives, and a drizzle of secret ooze sauce.",
     this.basePrice = 24.00,
+    this.image,
   });
 
   @override
@@ -108,27 +111,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildHeroImage() {
-    return Container(
-      height: 240,
-      width: double.infinity,
-      color: AppColors.surfaceContainerHigh,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.local_pizza,
-            size: 160,
-            color: AppColors.primaryFixed.withValues(alpha: 0.15),
-          ),
-          Icon(
+  final imageUrl = widget.image != null && widget.image!.isNotEmpty
+      ? ApiService.productImage(widget.image!)
+      : null;
+
+  return Container(
+    height: 240,
+    width: double.infinity,
+    color: AppColors.surfaceContainerHigh,
+    child: imageUrl != null
+        ? Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.image_not_supported,
+                size: 120,
+                color: AppColors.primaryFixed.withValues(alpha: 0.4),
+              );
+            },
+          )
+        : Icon(
             Icons.local_pizza,
             size: 120,
             color: AppColors.primaryFixed.withValues(alpha: 0.4),
           ),
-        ],
-      ),
-    );
-  }
+  );
+}
 
   Widget _buildProductInfo() {
     return Column(
@@ -152,7 +161,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              '\$${widget.basePrice.toStringAsFixed(0)}',
+              '\$${widget.basePrice.toStringAsFixed(2)}',
               style: GoogleFonts.anybody(
                 color: AppColors.primaryFixed,
                 fontSize: 28,
@@ -253,7 +262,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('Foundation'),
+        _sectionLabel('Crust Style'),
         const SizedBox(height: 10),
         ...List.generate(_crusts.length, (i) {
           final c = _crusts[i];
