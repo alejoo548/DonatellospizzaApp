@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 import '../services/api_service.dart';
+import 'profile_screen.dart';
 
 class OrderingFlowScreen extends StatefulWidget {
   const OrderingFlowScreen({super.key});
@@ -520,6 +521,11 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
+                  } else if (i == 3) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
                     );
                   } else {
                     setState(() => _navIndex = i);

@@ -68,7 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No se pudo conectar al servidor.'),
+          content: Text('Unable to connect to the server.'),
           backgroundColor: Colors.red,
         ),
       );

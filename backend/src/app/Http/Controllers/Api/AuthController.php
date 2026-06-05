@@ -18,30 +18,71 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'                  => 'required|string|max:255',
-            'lastname'              => 'required|string|max:255',
-            'email'                 => 'required|email|unique:users,email',
-            'password'              => ['required', 'string', 'confirmed', $this->passwordRule()],
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/u'
+            ],
+            'lastname' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/u'
+            ],
+            'email' => [
+                'required',
+                'string',
+                'email:rfc,dns',
+                'max:100',
+                'unique:users,email'
+            ],
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                $this->passwordRule()
+            ],
+        ], [
+            'name.required' => 'The name is required.',
+            'name.min' => 'The name must contain at least 2 characters.',
+            'name.regex' => 'The name may only contain letters and spaces.',
+
+            'lastname.required' => 'The lastname is required.',
+            'lastname.min' => 'The lastname must contain at least 2 characters.',
+            'lastname.regex' => 'The lastname may only contain letters and spaces.',
+
+            'email.required' => 'The email is required.',
+            'email.email' => 'Invalid email format.',
+            'email.unique' => 'This email is already registered.',
+
+            'password.min' => 'Password must contain at least 8 characters.',
+            'password.mixed' => 'Password must contain uppercase and lowercase letters.',
+            'password.numbers' => 'Password must contain at least one number.',
+            'password.required' => 'The password is required.',
+            'password.confirmed' => 'Passwords do not match.',
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
+            'name' => $validated['name'],
             'lastname' => $validated['lastname'],
-            'email'    => $validated['email'],
+            'email' => $validated['email'],
             'password' => $validated['password'],
-            'role'     => 'client',
+            'role' => 'client',
         ]);
 
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
             'message' => 'Signed up successfully.',
-            'user'    => [
-                'id'       => $user->id_user,
-                'name'     => $user->name,
+            'user' => [
+                'id' => $user->id_user,
+                'name' => $user->name,
                 'lastname' => $user->lastname,
-                'email'    => $user->email,
-                'role'     => $user->role,
+                'email' => $user->email,
+                'role' => $user->role,
             ],
             'token' => $token,
         ], 201);
@@ -50,13 +91,13 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'email'    => 'required|email',
+            'email' => 'required|email',
             'password' => 'required|string',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
@@ -72,12 +113,12 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Signed In successfully.',
-            'user'    => [
-                'id'       => $user->id_user,
-                'name'     => $user->name,
+            'user' => [
+                'id' => $user->id_user,
+                'name' => $user->name,
                 'lastname' => $user->lastname,
-                'email'    => $user->email,
-                'role'     => $user->role,
+                'email' => $user->email,
+                'role' => $user->role,
             ],
             'token' => $token,
         ]);
@@ -121,7 +162,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->string('email')->toString())->first();
 
-        if (! $user || ! Password::broker()->tokenExists($user, $request->string('token')->toString())) {
+        if (!$user || !Password::broker()->tokenExists($user, $request->string('token')->toString())) {
             throw ValidationException::withMessages([
                 'token' => ['The recovery token is invalid or has expired.'],
             ]);
@@ -173,5 +214,40 @@ class AuthController extends Controller
         return PasswordRule::min(8)
             ->mixedCase()
             ->numbers();
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/u'
+            ],
+            'lastname' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/u'
+            ],
+        ], [
+            'name.min' => 'The name must contain at least 2 characters.',
+            'name.regex' => 'The name may only contain letters and spaces.',
+
+            'lastname.min' => 'The lastname must contain at least 2 characters.',
+            'lastname.regex' => 'The lastname may only contain letters and spaces.',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user,
+        ]);
     }
 }

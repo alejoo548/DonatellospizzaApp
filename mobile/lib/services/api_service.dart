@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import '../services/session_manager.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -27,8 +28,7 @@ class ApiService {
     'API_BASE_URL',
     defaultValue: _defaultBaseUrl,
   );
-  static const String _defaultImageBaseUrl =
-      'http://192.168.1.13:8000/storage';
+  static const String _defaultImageBaseUrl = 'http://192.168.1.13:8000/storage';
   static const String _configuredImageBaseUrl = String.fromEnvironment(
     'IMAGE_BASE_URL',
     defaultValue: _defaultImageBaseUrl,
@@ -267,5 +267,64 @@ class ApiService {
         ApiException(
           'No se pudo completar la solicitud. URLs probadas: ${attemptedUrls.join(', ')}',
         );
+  }
+
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    await SessionManager.init();
+
+    final token = SessionManager.token;
+
+    if (token == null || token.isEmpty) {
+      throw ApiException('No active session.');
+    }
+
+    final response = await http
+        .get(
+          Uri.parse('${_candidateBaseUrls().first}/user'),
+          headers: {..._headers, 'Authorization': 'Bearer $token'},
+        )
+        .timeout(_requestTimeout);
+
+    final body = _decodeBody(response);
+
+    if (response.statusCode == 200) {
+      return body;
+    }
+
+    throw ApiException(body['message'] ?? 'Could not load profile.');
+  }
+
+  static Future<Map<String, dynamic>> updateUserProfile({
+    required String name,
+    required String lastname,
+  }) async {
+    await SessionManager.init();
+
+    final token = SessionManager.token;
+
+    if (token == null || token.isEmpty) {
+      throw ApiException('No active session.');
+    }
+
+    final response = await http
+        .put(
+          Uri.parse('${_candidateBaseUrls().first}/user/profile'),
+          headers: {..._headers, 'Authorization': 'Bearer $token'},
+          body: jsonEncode({'name': name, 'lastname': lastname}),
+        )
+        .timeout(_requestTimeout);
+
+    final body = _decodeBody(response);
+
+    if (response.statusCode == 200) {
+      await SessionManager.save(
+        token: token,
+        user: Map<String, dynamic>.from(body['user']),
+      );
+
+      return body;
+    }
+
+    throw ApiException(body['message'] ?? 'Could not update profile.');
   }
 }
