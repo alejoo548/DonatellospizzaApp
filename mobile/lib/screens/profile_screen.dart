@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/session_manager.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'purchase_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,6 +15,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late Future<Map<String, dynamic>> _profileFuture;
+  late Future<List<dynamic>> _ordersFuture;
 
   final _nameCtrl = TextEditingController();
   final _lastnameCtrl = TextEditingController();
@@ -25,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _profileFuture = ApiService.getUserProfile();
+    _ordersFuture = ApiService.getOrders().then((d) => d['orders'] as List<dynamic>? ?? []);
   }
 
   @override
@@ -176,23 +180,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 30),
 
-                const Text(
-                  'Order History',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Order History',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PurchaseHistoryScreen())),
+                      child: Text('View all', style: GoogleFonts.hankenGrotesk(color: AppColors.primaryFixed, fontSize: 13)),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'No orders yet.',
-                      style: TextStyle(color: Colors.white70),
-                    ),
+                Expanded(
+                  child: FutureBuilder<List<dynamic>>(
+                    future: _ordersFuture,
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final orders = snap.data ?? [];
+                      if (orders.isEmpty) {
+                        return Center(
+                          child: Text('No orders yet.', style: GoogleFonts.hankenGrotesk(color: Colors.white70, fontSize: 13)),
+                        );
+                      }
+                      return ListView.separated(
+                        itemCount: orders.length > 3 ? 3 : orders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          final order = orders[i];
+                          final total = double.tryParse(order['total'].toString()) ?? 0;
+                          final items = order['items'] as List<dynamic>? ?? [];
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainer,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.primaryFixed.withValues(alpha: 0.12)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.receipt_long_outlined, color: AppColors.primaryFixed, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        order['order_number']?.toString() ?? 'Order',
+                                        style: GoogleFonts.hankenGrotesk(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                                      ),
+                                      Text(
+                                        '${items.length} item${items.length == 1 ? '' : 's'}',
+                                        style: GoogleFonts.hankenGrotesk(color: Colors.white70, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '\$${total.toStringAsFixed(2)}',
+                                  style: GoogleFonts.anybody(color: AppColors.primaryFixed, fontWeight: FontWeight.w700, fontSize: 15),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
 

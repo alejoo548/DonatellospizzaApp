@@ -10,6 +10,7 @@ import 'favorites_screen.dart';
 import 'home_screen.dart';
 import 'product_detail_screen.dart';
 import 'ordering_flow_screen.dart';
+import 'profile_screen.dart';
 import 'purchase_history_screen.dart';
 import '../widgets/promo_carousel.dart';
 
@@ -66,40 +67,6 @@ class _MenuCategory {
   }
 }
 
-const _fallbackProducts = [
-  _Product(
-    name: "Splinter's Margherita",
-    description: 'Fresh basil, mozzarella, signature red sauce',
-    price: 14.00,
-  ),
-  _Product(
-    name: 'The Foot Clan Meat',
-    description: 'Pepperoni, sausage, ham, bacon, beef',
-    price: 18.00,
-    isBestSeller: true,
-  ),
-  _Product(
-    name: 'The Shredder Special',
-    description: 'Extra jalapeños, spicy sausage, hot honey drizzle',
-    price: 24.00,
-    isNew: true,
-  ),
-  _Product(
-    name: 'Mutagen Knots',
-    description: 'Garlic butter, parmesan dust, ooze dip',
-    price: 8.50,
-  ),
-  _Product(
-    name: 'Classic Cowabunga',
-    description: 'Double pepperoni, rich tomato sauce, cheese blend',
-    price: 18.50,
-  ),
-  _Product(
-    name: "Leo's Veggie Slice",
-    description: 'Mushrooms, bell peppers, spinach, artichoke',
-    price: 13.00,
-  ),
-];
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -115,8 +82,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   int _navIndex = 0;
   bool _isSearching = false;
   bool _loadingProducts = true;
+  String? _loadError;
   String _searchQuery = '';
-  List<_Product> _products = List<_Product>.from(_fallbackProducts);
+  List<_Product> _products = [];
   List<_MenuCategory> _categories = const [_MenuCategory(name: 'All')];
   List<dynamic> _carouselItems = [];
 
@@ -176,9 +144,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
         }
         _loadingProducts = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _loadingProducts = false);
+      setState(() {
+        _loadError = e.toString();
+        _loadingProducts = false;
+      });
     }
 
     // Carousel loads independently — failure doesn't affect home
@@ -224,8 +195,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 onOrderNow: _openCarouselItem,
                               ),
                             )
-                          else
-                            _buildHero(),
+                          else if (!_loadingProducts && _products.isNotEmpty)
+                            _buildHero(_products.first),
                           const SizedBox(height: 22),
                           _buildCategories(),
                           const SizedBox(height: 20),
@@ -695,107 +666,130 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildHero() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      height: 200,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primaryFixed.withValues(alpha: 0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryFixed.withValues(alpha: 0.08),
-            blurRadius: 20,
+  Widget _buildHero(_Product featured) {
+    final imageUrl = featured.image != null && featured.image!.isNotEmpty
+        ? ApiService.productImage(featured.image!)
+        : null;
+
+    return GestureDetector(
+      onTap: () => _openProduct(featured),
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        height: 200,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.primaryFixed.withValues(alpha: 0.15),
+            width: 1,
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(
-              Icons.local_pizza,
-              size: 180,
-              color: AppColors.primaryFixed.withValues(alpha: 0.06),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryFixed.withValues(alpha: 0.08),
+              blurRadius: 20,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+          ],
+        ),
+        child: Stack(
+          children: [
+            if (imageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Positioned.fill(
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox(),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.secondary.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.local_fire_department,
-                        color: AppColors.secondary,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'New Arrival',
-                        style: GoogleFonts.hankenGrotesk(
-                          color: AppColors.secondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                ),
+              ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerRight,
+                    end: Alignment.centerLeft,
+                    colors: [
+                      Colors.transparent,
+                      AppColors.surfaceDim.withValues(alpha: 0.92),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'The Sewer Supreme',
-                  style: GoogleFonts.anybody(
-                    color: AppColors.primary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Pepperoni, sausage, green peppers,\nonions, and extra ooze cheese',
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    Text(
-                      '\$22.00',
-                      style: GoogleFonts.anybody(
-                        color: AppColors.primaryFixed,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.secondary.withValues(alpha: 0.3),
+                        width: 1,
                       ),
                     ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Container(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department,
+                          color: AppColors.secondary,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Featured',
+                          style: GoogleFonts.hankenGrotesk(
+                            color: AppColors.secondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    featured.name,
+                    style: GoogleFonts.anybody(
+                      color: AppColors.primary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    featured.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.hankenGrotesk(
+                      color: AppColors.onSurfaceVariant,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Text(
+                        '\$${featured.price.toStringAsFixed(2)}',
+                        style: GoogleFonts.anybody(
+                          color: AppColors.primaryFixed,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
@@ -805,9 +799,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryFixed.withValues(
-                                alpha: 0.3,
-                              ),
+                              color: AppColors.primaryFixed.withValues(alpha: 0.3),
                               blurRadius: 12,
                             ),
                           ],
@@ -821,13 +813,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -885,6 +877,42 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildProductGrid() {
+    if (_loadingProducts) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_loadError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            children: [
+              const Icon(Icons.wifi_off, color: AppColors.secondary, size: 36),
+              const SizedBox(height: 10),
+              Text('Could not load products', style: GoogleFonts.hankenGrotesk(color: AppColors.onSurface, fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 6),
+              Text('Check your connection and try again.', textAlign: TextAlign.center, style: GoogleFonts.hankenGrotesk(color: AppColors.onSurfaceVariant, fontSize: 13)),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () { setState(() { _loadError = null; _loadingProducts = true; }); _loadProducts(); },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_visibleProducts.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -989,25 +1017,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
               final selected = _navIndex == i;
               return GestureDetector(
                 onTap: () {
-                  if (i == 2) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CartScreen()),
-                    );
-                  } else if (i == 1) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const OrderingFlowScreen(),
-                      ),
-                    );
+                  if (i == 1) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderingFlowScreen()));
+                  } else if (i == 2) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen()));
                   } else if (i == 3) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const FavoritesScreen(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
+                  } else if (i == 4) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
                   } else {
                     setState(() => _navIndex = i);
                   }
