@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/brand_logo.dart';
 import '../widgets/ninja_button.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -14,29 +15,27 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: AppColors.surfaceDim,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _DotPatternPainter()),
-          ),
+          Positioned.fill(child: CustomPaint(painter: _DotPatternPainter())),
           SafeArea(
             child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 20),
                       _buildHero(),
-                      const SizedBox(height: 72),
+                      const SizedBox(height: 42),
                       NinjaButton(
                         label: 'Sign In',
                         icon: Icons.login,
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
+                            builder: (_) => const LoginScreen(),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -46,7 +45,8 @@ class HomeScreen extends StatelessWidget {
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const RegisterScreen()),
+                            builder: (_) => const RegisterScreen(),
+                          ),
                         ),
                         variant: NinjaButtonVariant.ghost,
                       ),
@@ -56,8 +56,9 @@ class HomeScreen extends StatelessWidget {
                           'By continuing you agree to our Terms of Service.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.hankenGrotesk(
-                            color:
-                                AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                            color: AppColors.onSurfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 11,
                           ),
                         ),
@@ -76,28 +77,8 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHero() {
     return Column(
       children: [
-        Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.primaryFixed.withValues(alpha: 0.2),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryFixed.withValues(alpha: 0.12),
-                blurRadius: 32,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: const Icon(Icons.local_pizza,
-              color: AppColors.primaryFixed, size: 44),
-        ),
-        const SizedBox(height: 28),
+        const BrandLogo(size: 168),
+        const SizedBox(height: 22),
         Text(
           "DONATELLO'S",
           textAlign: TextAlign.center,
@@ -134,8 +115,7 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.surfaceContainer,
             borderRadius: BorderRadius.circular(999),

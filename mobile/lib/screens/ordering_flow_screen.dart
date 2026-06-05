@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/brand_logo.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
+import 'favorites_screen.dart';
+import 'products_screen.dart';
+import 'profile_screen.dart';
 import '../services/api_service.dart';
 
 class OrderingFlowScreen extends StatefulWidget {
@@ -20,6 +24,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
   bool _isSearching = false;
 
   bool _loading = true;
+  String? _error;
   List<dynamic> _categories = [];
   List<dynamic> _products = [];
 
@@ -53,15 +58,41 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
       setState(() {
         _categories = categoriesData['categories'] ?? [];
         _products = productsData['products'] ?? [];
+        _error = null;
         _loading = false;
       });
     } catch (e) {
       setState(() {
+        _error = e.toString();
         _loading = false;
       });
-
-      print(e);
     }
+  }
+
+  void _openProductDetail(dynamic item, double price) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductDetailScreen(
+          productId: item['id'] as int?,
+          name: item['name'],
+          description: item['description'],
+          basePrice: price,
+          image: (item['image_url'] ?? item['image'])?.toString(),
+          categoryId: item['category_id'],
+          options: item['options'] ?? [],
+          stock: (item['stock'] as int?) ?? 99,
+        ),
+      ),
+    );
+  }
+
+  void _goBack() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const ProductsScreen()),
+      (_) => false,
+    );
   }
 
   @override
@@ -72,38 +103,57 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
 
       return name.contains(_searchQuery) || description.contains(_searchQuery);
     }).toList();
-    return Scaffold(
-      backgroundColor: AppColors.surfaceDim,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 24),
-                    _buildHeroHeader(),
-                    const SizedBox(height: 20),
-                    _buildFilterChips(),
-                    const SizedBox(height: 20),
-                    if (_loading)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      ...filteredProducts.map(_buildMenuItem),
-                    const SizedBox(height: 24),
-                    _buildDeliveryBanner(),
-                    const SizedBox(height: 24),
-                  ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surfaceDim,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildTopBar(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      _buildHeroHeader(),
+                      const SizedBox(height: 20),
+                      _buildFilterChips(),
+                      const SizedBox(height: 20),
+                      if (_loading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_error != null)
+                        _MenuError(message: _error!, onRetry: _loadMenu)
+                      else if (filteredProducts.isEmpty)
+                        _EmptyMenuState(
+                          searching: _searchQuery.isNotEmpty,
+                          onClearSearch: () {
+                            setState(() {
+                              _isSearching = false;
+                              _searchController.clear();
+                              _searchQuery = '';
+                            });
+                          },
+                        )
+                      else
+                        ...filteredProducts.map(_buildMenuItem),
+                      const SizedBox(height: 24),
+                      _buildPromoBanner(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        bottomNavigationBar: _buildBottomNav(),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -126,21 +176,14 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
               Icons.arrow_back,
               color: AppColors.onSurfaceVariant,
             ),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _goBack,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
           const SizedBox(width: 12),
-          Text(
-            "DONATELLO'S PIZZA",
-            style: GoogleFonts.anybody(
-              color: AppColors.primaryFixed,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              fontStyle: FontStyle.italic,
-            ),
+          Expanded(
+            child: _isSearching ? _buildTopSearchField() : _buildTopTitle(),
           ),
-          const Spacer(),
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close : Icons.search_outlined,
@@ -160,6 +203,70 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             constraints: const BoxConstraints(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopTitle() {
+    return Row(
+      children: [
+        const BrandLogo(size: 34, compact: true),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            "DONATELLO'S PIZZA",
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.anybody(
+              color: AppColors.primaryFixed,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopSearchField() {
+    return TextField(
+      controller: _searchController,
+      autofocus: true,
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value.trim().toLowerCase();
+        });
+      },
+      style: GoogleFonts.hankenGrotesk(
+        color: AppColors.onSurface,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Search products',
+        hintStyle: GoogleFonts.hankenGrotesk(
+          color: AppColors.onSurfaceVariant,
+          fontSize: 14,
+        ),
+        prefixIcon: const Icon(
+          Icons.search,
+          color: AppColors.primaryFixed,
+          size: 18,
+        ),
+        filled: true,
+        fillColor: AppColors.surfaceContainer,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: AppColors.primaryFixed.withValues(alpha: 0.25),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primaryFixed),
+        ),
       ),
     );
   }
@@ -186,26 +293,6 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             fontSize: 14,
           ),
         ),
-        if (_isSearching)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -255,21 +342,10 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
 
   Widget _buildMenuItem(dynamic item) {
     final price = double.parse(item['price'].toString());
-    final imageUrl = ApiService.productImage(item['image'].toString());
+    final image = (item['image_url'] ?? item['image'])?.toString();
+    final imageUrl = image != null ? ApiService.productImage(image) : null;
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(
-            name: item['name'],
-            description: item['description'],
-            basePrice: price,
-            image: item['image'],
-            categoryId: item['category_id'],
-            options: item['options'] ?? [],
-          ),
-        ),
-      ),
+      onTap: () => _openProductDetail(item, price),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
@@ -292,17 +368,25 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.image_not_supported,
-                      color: AppColors.primaryFixed.withValues(alpha: 0.4),
-                      size: 36,
-                    );
-                  },
-                ),
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.image_not_supported,
+                            color: AppColors.primaryFixed.withValues(
+                              alpha: 0.4,
+                            ),
+                            size: 36,
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.image_not_supported,
+                        color: AppColors.primaryFixed.withValues(alpha: 0.4),
+                        size: 36,
+                      ),
               ),
             ),
             const SizedBox(width: 14),
@@ -348,18 +432,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(
-                              name: item['name'],
-                              description: item['description'],
-                              basePrice: price,
-                              image: item['image'],
-                              categoryId: item['category_id'],
-                            ),
-                          ),
-                        ),
+                        onTap: () => _openProductDetail(item, price),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -407,7 +480,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
     );
   }
 
-  Widget _buildDeliveryBanner() {
+  Widget _buildPromoBanner() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -431,7 +504,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Midnight Delivery?',
+                  'Cowabunga!',
                   style: GoogleFonts.anybody(
                     color: AppColors.primary,
                     fontSize: 18,
@@ -441,7 +514,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Turtle Van available 24/7',
+                  'Fresh out of the oven!',
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.onSurfaceVariant,
                     fontSize: 13,
@@ -465,7 +538,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             child: Column(
               children: [
                 Text(
-                  '20-30',
+                  '100%',
                   style: GoogleFonts.anybody(
                     color: AppColors.onPrimaryFixed,
                     fontWeight: FontWeight.w800,
@@ -473,7 +546,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                   ),
                 ),
                 Text(
-                  'MIN',
+                  'FRESH',
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.onPrimaryFixed,
                     fontWeight: FontWeight.w700,
@@ -494,6 +567,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
       (Icons.home_outlined, Icons.home, 'Home'),
       (Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Menu'),
       (Icons.shopping_cart_outlined, Icons.shopping_cart, 'Cart'),
+      (Icons.favorite_border, Icons.favorite, 'Favorites'),
       (Icons.person_outline, Icons.person, 'Profile'),
     ];
 
@@ -520,6 +594,18 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
+                  } else if (i == 3) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FavoritesScreen(),
+                      ),
+                    );
+                  } else if (i == 4) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
                     );
                   } else {
                     setState(() => _navIndex = i);
@@ -554,6 +640,108 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             }),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MenuError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _MenuError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, color: AppColors.secondary, size: 32),
+          const SizedBox(height: 10),
+          Text(
+            'Could not load menu',
+            style: GoogleFonts.hankenGrotesk(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyMenuState extends StatelessWidget {
+  final bool searching;
+  final VoidCallback onClearSearch;
+
+  const _EmptyMenuState({required this.searching, required this.onClearSearch});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.search_off, color: AppColors.secondary, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            searching ? 'No products found' : 'No products available',
+            style: GoogleFonts.hankenGrotesk(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            searching
+                ? 'Try another name or clear the search.'
+                : 'Please try again in a moment.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          ),
+          if (searching) ...[
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: onClearSearch,
+              child: const Text('Clear Search'),
+            ),
+          ],
+        ],
       ),
     );
   }

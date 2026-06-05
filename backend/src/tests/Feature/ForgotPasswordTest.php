@@ -42,13 +42,13 @@ class ForgotPasswordTest extends TestCase
         $this->postJson('/api/forgot-password/reset', [
             'email' => $user->email,
             'token' => $token,
-            'password' => 'new-password-123',
-            'password_confirmation' => 'new-password-123',
+            'password' => 'New-password-123',
+            'password_confirmation' => 'New-password-123',
         ])->assertOk();
 
         $user->refresh();
 
-        $this->assertTrue(Hash::check('new-password-123', $user->password));
+        $this->assertTrue(Hash::check('New-password-123', $user->password));
 
         $this->postJson('/api/forgot-password/validate-token', [
             'email' => $user->email,

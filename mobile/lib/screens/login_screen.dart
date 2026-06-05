@@ -3,11 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/session_manager.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
+import '../widgets/brand_logo.dart';
 import '../widgets/ninja_button.dart';
 import '../widgets/ninja_text_field.dart';
+import 'email_verification_screen.dart';
 import 'forgot_password_screen.dart';
+import 'ordering_flow_screen.dart';
 import 'register_screen.dart';
-import 'products_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,23 +48,34 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ProductsScreen()),
+        MaterialPageRoute(builder: (_) => const OrderingFlowScreen()),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      if (e.errors?['email_unverified'] == true) {
+        final unverifiedEmail =
+            e.errors?['email'] as String? ?? _emailCtrl.text.trim();
+        showAppToast(
+          context,
+          message: 'Please verify your email to sign in.',
+          type: AppToastType.info,
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                EmailVerificationScreen(email: unverifiedEmail),
+          ),
+        );
+      } else {
+        showAppToast(context, message: e.message, type: AppToastType.error);
+      }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo conectar al servidor.'),
-          backgroundColor: Colors.red,
-        ),
+      showAppToast(
+        context,
+        message: 'Could not connect to the server.',
+        type: AppToastType.error,
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -86,9 +100,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 10),
                         _buildHeader(),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 28),
                         NinjaTextField(
                           controller: _emailCtrl,
                           placeholder: 'Email Address',
@@ -250,32 +264,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.primaryFixed.withValues(alpha: 0.2),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryFixed.withValues(alpha: 0.1),
-                blurRadius: 20,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.local_pizza,
-            color: AppColors.primaryFixed,
-            size: 30,
-          ),
-        ),
-        const SizedBox(height: 24),
+        const BrandLogo(size: 132),
+        const SizedBox(height: 18),
         Text(
-          'Acceso Ninja',
+          'Ninja Access',
           textAlign: TextAlign.center,
           style: GoogleFonts.anybody(
             fontSize: 28,

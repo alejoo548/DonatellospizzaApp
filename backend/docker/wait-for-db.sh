@@ -52,5 +52,8 @@ done
 echo "Finishing Laravel package discovery..."
 php artisan package:discover --ansi
 
+echo "Creating storage symlink..."
+php artisan storage:link --force
+
 echo "MySQL is ready. Starting PHP-FPM..."
 exec php-fpm

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/password_validator.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/ninja_button.dart';
 import '../widgets/ninja_text_field.dart';
 
@@ -111,8 +112,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   void _showSnackBar(String message, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
+    showAppToast(
+      context,
+      message: message,
+      type: color == Colors.green.shade700
+          ? AppToastType.success
+          : AppToastType.error,
     );
   }
 
@@ -359,9 +364,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           color: AppColors.onSurfaceVariant,
           size: 20,
         ),
-        onPressed: () => setState(
-          () => _obscureConfirmPassword = !_obscureConfirmPassword,
-        ),
+        onPressed: () =>
+            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
       ),
     );
   }
@@ -380,17 +384,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     return _buildNotice(
-      keyValue: _step == _RecoveryStep.token ? 'token-notice' : 'password-notice',
+      keyValue: _step == _RecoveryStep.token
+          ? 'token-notice'
+          : 'password-notice',
       message: _step == _RecoveryStep.token
           ? 'We sent a recovery token to your email. Enter it below to continue.'
           : 'Your token is valid. Choose a new password to finish recovery.',
     );
   }
 
-  Widget _buildNotice({
-    required String keyValue,
-    required String message,
-  }) {
+  Widget _buildNotice({required String keyValue, required String message}) {
     return Container(
       key: ValueKey(keyValue),
       padding: const EdgeInsets.all(16),

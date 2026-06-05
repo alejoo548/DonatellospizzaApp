@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-
-class _CartItem {
-  final String name;
-  final String description;
-  final double price;
-  int quantity;
-
-  _CartItem({
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.quantity,
-  });
-}
+import '../widgets/app_toast.dart';
+import '../widgets/brand_logo.dart';
+import 'ordering_flow_screen.dart';
+import 'payment_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -24,91 +15,203 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final List<_CartItem> _items = [
-    _CartItem(
-      name: 'The Shredder Special',
-      description: 'Extra pepperoni, spicy honey, jalapeños.',
-      price: 24.00,
-      quantity: 1,
-    ),
-    _CartItem(
-      name: 'Mutagen Knots',
-      description: 'Garlic butter, parmesan dust.',
-      price: 8.50,
-      quantity: 2,
-    ),
-  ];
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _items = [];
 
-  double get _subtotal =>
-      _items.fold(0, (s, i) => s + i.price * i.quantity);
-  double get _tax => 4.50;
-  double get _tip => 5.00;
-  double get _total => _subtotal + _tax + _tip;
+  double get _subtotal => _items.fold(0, (sum, item) {
+    return sum + double.parse(item['total_price'].toString());
+  });
+  double get _total => _subtotal;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCart();
+  }
+
+  Future<void> _loadCart() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await ApiService.getCart();
+      if (!mounted) return;
+      setState(() {
+        _items = data['items'] as List<dynamic>? ?? [];
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setQuantity(dynamic item, int quantity) async {
+    if (quantity < 1) {
+      await _removeItem(item);
+      return;
+    }
+
+    final previous = List<dynamic>.from(_items);
+    setState(() {
+      item['quantity'] = quantity;
+      item['total_price'] =
+          double.parse(item['unit_price'].toString()) * quantity;
+    });
+
+    try {
+      await ApiService.updateCartItem(
+        itemId: item['id'] as int,
+        quantity: quantity,
+      );
+      await _loadCart();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _items = previous);
+      showAppToast(context, message: e.toString(), type: AppToastType.error);
+    }
+  }
+
+  Future<void> _removeItem(dynamic item) async {
+    final previous = List<dynamic>.from(_items);
+    setState(() => _items.remove(item));
+
+    try {
+      await ApiService.removeCartItem(item['id'] as int);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _items = previous);
+      showAppToast(context, message: e.toString(), type: AppToastType.error);
+    }
+  }
+
+  Future<void> _clearCart() async {
+    if (_items.isEmpty) return;
+
+    final previous = List<dynamic>.from(_items);
+    setState(() => _items = []);
+
+    try {
+      await ApiService.clearCart();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _items = previous);
+      showAppToast(context, message: e.toString(), type: AppToastType.error);
+    }
+  }
+
+  void _addMore() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const OrderingFlowScreen()),
+    ).then((_) => _loadCart());
+  }
+
+  void _checkout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentScreen(total: _total)),
+    ).then((paid) {
+      if (paid == true) {
+        _loadCart();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surfaceDim,
-      extendBodyBehindAppBar: false,
       appBar: AppBar(
-        backgroundColor:
-            AppColors.surfaceDim.withValues(alpha: 0.8),
+        backgroundColor: AppColors.surfaceDim.withValues(alpha: 0.8),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back,
-              color: AppColors.onSurfaceVariant),
+          icon: const Icon(Icons.arrow_back, color: AppColors.onSurfaceVariant),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          "DONATELLO'S PIZZA",
-          style: GoogleFonts.anybody(
-            color: AppColors.primaryFixed,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            fontStyle: FontStyle.italic,
-          ),
+        title: Row(
+          children: [
+            const BrandLogo(size: 30, compact: true),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "DONATELLO'S PIZZA",
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.anybody(
+                  color: AppColors.primaryFixed,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline,
-                color: AppColors.primaryFixed),
-            onPressed: () {},
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.primaryFixed,
+            ),
+            onPressed: _items.isEmpty ? null : _clearCart,
           ),
         ],
         elevation: 0,
-        shadowColor: Colors.transparent,
       ),
       body: Column(
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionTitle('Order Summary'),
-                  const SizedBox(height: 12),
-                  ..._items.map(_buildCartItem),
-                  const SizedBox(height: 8),
-                  _buildAddMoreButton(),
-                  const SizedBox(height: 24),
-                  _buildDivider(),
-                  const SizedBox(height: 24),
-                  _sectionTitle('Delivery HQ'),
-                  const SizedBox(height: 12),
-                  _buildDeliveryCard(),
-                  const SizedBox(height: 24),
-                  _buildDivider(),
-                  const SizedBox(height: 24),
-                  _sectionTitle('Funding Source'),
-                  const SizedBox(height: 12),
-                  _buildPaymentOptions(),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
+          Expanded(child: _buildBody()),
           _buildCheckoutFooter(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return _EmptyCartState(
+        icon: Icons.error_outline,
+        title: 'Could not load cart',
+        message: _error!,
+        actionLabel: 'Retry',
+        onAction: _loadCart,
+      );
+    }
+
+    if (_items.isEmpty) {
+      return _EmptyCartState(
+        icon: Icons.shopping_cart_outlined,
+        title: 'Your cart is empty',
+        message: 'Add products from the menu to start your order.',
+        actionLabel: 'Go to Menu',
+        onAction: _addMore,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadCart,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Order Summary'),
+            const SizedBox(height: 12),
+            ..._items.map(_buildCartItem),
+            const SizedBox(height: 8),
+            _buildAddMoreButton(),
+          ],
+        ),
       ),
     );
   }
@@ -124,12 +227,12 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(
-        color: Colors.white.withValues(alpha: 0.05), thickness: 1, height: 1);
-  }
+  Widget _buildCartItem(dynamic item) {
+    final product = item['product'] as Map<String, dynamic>? ?? {};
+    final image = (product['image_url'] ?? product['image'])?.toString();
+    final unitPrice = double.parse(item['unit_price'].toString());
+    final quantity = item['quantity'] as int;
 
-  Widget _buildCartItem(_CartItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -144,40 +247,49 @@ class _CartScreenState extends State<CartScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryFixed.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  spreadRadius: -2,
-                ),
-              ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: image != null && image.isNotEmpty
+                  ? Image.network(
+                      ApiService.productImage(image),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _imageFallback(),
+                    )
+                  : _imageFallback(),
             ),
-            child: const Icon(Icons.local_pizza,
-                color: AppColors.primaryFixed, size: 36),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.name,
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.onSurface,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        product['name']?.toString() ?? 'Product',
+                        style: GoogleFonts.hankenGrotesk(
+                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: AppColors.onSurfaceVariant,
+                        size: 18,
+                      ),
+                      onPressed: () => _removeItem(item),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  item.description,
+                  product['description']?.toString() ?? '',
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.onSurfaceVariant,
                     fontSize: 12,
@@ -190,14 +302,14 @@ class _CartScreenState extends State<CartScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '\$${item.price.toStringAsFixed(2)}',
+                      '\$${unitPrice.toStringAsFixed(2)}',
                       style: GoogleFonts.hankenGrotesk(
                         color: AppColors.primaryFixed,
                         fontWeight: FontWeight.w600,
                         fontSize: 18,
                       ),
                     ),
-                    _buildQuantityControl(item),
+                    _buildQuantityControl(item, quantity),
                   ],
                 ),
               ],
@@ -208,26 +320,38 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildQuantityControl(_CartItem item) {
+  Widget _imageFallback() {
+    return Container(
+      color: AppColors.surfaceContainerHigh,
+      child: const Icon(
+        Icons.local_pizza,
+        color: AppColors.primaryFixed,
+        size: 36,
+      ),
+    );
+  }
+
+  Widget _buildQuantityControl(dynamic item, int quantity) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(999),
-        border:
-            Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _QBtn(
             icon: Icons.remove,
-            onPressed: () =>
-                setState(() => item.quantity > 1 ? item.quantity-- : null),
+            onPressed: () => _setQuantity(item, quantity - 1),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              '${item.quantity}',
+              '$quantity',
               style: GoogleFonts.hankenGrotesk(
                 color: AppColors.onSurface,
                 fontWeight: FontWeight.w600,
@@ -237,7 +361,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
           _QBtn(
             icon: Icons.add,
-            onPressed: () => setState(() => item.quantity++),
+            onPressed: () => _setQuantity(item, quantity + 1),
           ),
         ],
       ),
@@ -245,208 +369,24 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildAddMoreButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-          width: 1,
+      child: OutlinedButton.icon(
+        onPressed: _addMore,
+        icon: const Icon(
+          Icons.add,
+          color: AppColors.onSurfaceVariant,
+          size: 20,
         ),
-      ),
-      child: TextButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.add,
-            color: AppColors.onSurfaceVariant, size: 20),
         label: Text(
-          'Add More Supplies',
+          'Add More Products',
           style: GoogleFonts.hankenGrotesk(
             color: AppColors.onSurfaceVariant,
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            letterSpacing: 0.5,
           ),
-        ),
-        style: TextButton.styleFrom(padding: const EdgeInsets.all(12)),
-      ),
-    );
-  }
-
-  Widget _buildDeliveryCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
-      child: Column(
-        children: [
-          // Map placeholder
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHighest,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Center(
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryFixed.withValues(alpha: 0.6),
-                      blurRadius: 15,
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.location_on,
-                    color: AppColors.onPrimaryFixed, size: 20),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.home,
-                    color: AppColors.secondary, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sewer Lair Entry #4',
-                        style: GoogleFonts.hankenGrotesk(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '122nd St & Broadway, Manhole Cover B',
-                        style: GoogleFonts.hankenGrotesk(
-                          color: AppColors.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: Text(
-                    'Edit',
-                    style: GoogleFonts.hankenGrotesk(
-                      color: AppColors.primaryFixed,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentOptions() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primaryContainer.withValues(alpha: 0.5),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryFixed.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Icon(Icons.credit_card,
-                    color: AppColors.primaryContainer, size: 32),
-                const SizedBox(height: 6),
-                Text(
-                  'Shell Card',
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.primaryContainer,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Active',
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.outlineVariant.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Icon(Icons.monetization_on,
-                    color: AppColors.secondary, size: 32),
-                const SizedBox(height: 6),
-                Text(
-                  'Pizza Coins',
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '420 pts',
-                  style: GoogleFonts.hankenGrotesk(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -456,42 +396,32 @@ class _CartScreenState extends State<CartScreen> {
         color: AppColors.surfaceContainerHighest.withValues(alpha: 0.95),
         border: Border(
           top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05), width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 30,
-            offset: const Offset(0, -10),
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1,
           ),
-        ],
+        ),
       ),
-      padding:
-          const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _CostRow(label: 'Subtotal', amount: _subtotal),
-          const SizedBox(height: 6),
-          _CostRow(label: 'Hazard Delivery Fee', amount: _tax),
-          const SizedBox(height: 6),
-          _CostRow(label: 'Ooze Tax', amount: _tip),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Divider(
-                color: AppColors.outlineVariant.withValues(alpha: 0.2),
-                thickness: 1),
+              color: AppColors.outlineVariant.withValues(alpha: 0.2),
+              thickness: 1,
+            ),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Total Extraction',
+                'Total',
                 style: GoogleFonts.hankenGrotesk(
                   color: AppColors.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  letterSpacing: 0.5,
                 ),
               ),
               Text(
@@ -505,7 +435,7 @@ class _CartScreenState extends State<CartScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _CheckoutButton(onPressed: () {}),
+          _CheckoutButton(enabled: _items.isNotEmpty, onPressed: _checkout),
         ],
       ),
     );
@@ -560,59 +490,80 @@ class _CostRow extends StatelessWidget {
   }
 }
 
-class _CheckoutButton extends StatefulWidget {
+class _CheckoutButton extends StatelessWidget {
+  final bool enabled;
   final VoidCallback onPressed;
-  const _CheckoutButton({required this.onPressed});
 
-  @override
-  State<_CheckoutButton> createState() => _CheckoutButtonState();
-}
-
-class _CheckoutButtonState extends State<_CheckoutButton> {
-  bool _pressed = false;
+  const _CheckoutButton({required this.enabled, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppColors.primaryFixed,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryFixed.withValues(alpha: 0.3),
-                blurRadius: 20,
+    return FilledButton.icon(
+      onPressed: enabled ? onPressed : null,
+      icon: const Icon(Icons.shopping_bag_outlined),
+      label: const Text('BUY NOW'),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        backgroundColor: AppColors.primaryFixed,
+        foregroundColor: AppColors.onPrimaryFixed,
+        textStyle: GoogleFonts.hankenGrotesk(
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCartState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  const _EmptyCartState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.primaryFixed, size: 50),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.anybody(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                fontStyle: FontStyle.italic,
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'SEND TO THE SEWERS',
-                style: GoogleFonts.hankenGrotesk(
-                  color: AppColors.onPrimaryFixed,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  letterSpacing: 1.5,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.hankenGrotesk(
+                color: AppColors.onSurfaceVariant,
+                fontSize: 14,
+                height: 1.4,
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.rocket_launch,
-                  color: AppColors.onPrimaryFixed, size: 24),
-            ],
-          ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
+          ],
         ),
       ),
     );
