@@ -16,7 +16,7 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  static const String _lanBaseUrl = 'http://192.168.3.85:8010/api';
+  static const String _lanBaseUrl = 'http://192.168.1.229:8010/api';
   // Android emulator with `adb reverse tcp:8010 tcp:8010`: http://127.0.0.1:8010
   // Classic Android emulator alternative: http://10.0.2.2:8010
   // Physical device on the same network: use the LAN IP of the machine running Docker.

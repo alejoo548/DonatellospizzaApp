@@ -48,10 +48,10 @@ services:
       start_period: 10s
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: lscr.io/linuxserver/phpmyadmin:latest
     container_name: donatellos_phpmyadmin
     ports:
-      - "8081:80"
+      - "8082:3000"
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
