@@ -16,15 +16,8 @@ class ApiException implements Exception {
 }
 
 class ApiService {
+  static const String _ngrokBaseUrl = 'https://7cb7-168-243-233-150.ngrok-free.app/api';
   static const String _lanBaseUrl = 'http://192.168.1.229:8010/api';
-  // Android emulator with `adb reverse tcp:8010 tcp:8010`: http://127.0.0.1:8010
-  // Classic Android emulator alternative: http://10.0.2.2:8010
-  // Physical device on the same network: use the LAN IP of the machine running Docker.
-  // To override the URL at build time:
-  // flutter run --dart-define=API_BASE_URL=http://YOUR_IP:8010/api
-  static const String _androidEmulatorFallbackBaseUrl =
-      'http://10.0.2.2:8010/api';
-  static const String _androidReverseBaseUrl = 'http://127.0.0.1:8010/api';
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
@@ -390,25 +383,9 @@ class ApiService {
       urls.add(_configuredBaseUrl);
     }
 
-    if (Platform.isAndroid) {
-      for (final url in [
-        _androidReverseBaseUrl,
-        _androidEmulatorFallbackBaseUrl,
-        _lanBaseUrl,
-      ]) {
-        if (!urls.contains(url)) {
-          urls.add(url);
-        }
-      }
-    } else {
-      for (final url in [
-        'http://127.0.0.1:8010/api',
-        'http://localhost:8010/api',
-        _lanBaseUrl,
-      ]) {
-        if (!urls.contains(url)) {
-          urls.add(url);
-        }
+    for (final url in [_ngrokBaseUrl, _lanBaseUrl]) {
+      if (!urls.contains(url)) {
+        urls.add(url);
       }
     }
 
