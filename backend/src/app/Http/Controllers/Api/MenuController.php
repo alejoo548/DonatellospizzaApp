@@ -19,8 +19,9 @@ class MenuController extends Controller
     public function products()
     {
         return response()->json([
-            'products' => Product::where('status', 'available')
-                ->select('id', 'name', 'description', 'price', 'image', 'category_id')
+            'products' => Product::with('options')
+                ->where('stock', '>', 0)
+                ->select('id', 'name', 'description', 'price', 'stock', 'image', 'category_id')
                 ->get()
         ]);
     }

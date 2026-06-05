@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
   final String message;
   final Map<String, dynamic>? errors;
+
   ApiException(this.message, {this.errors});
 
   @override
@@ -25,7 +27,8 @@ class ApiService {
     'API_BASE_URL',
     defaultValue: _defaultBaseUrl,
   );
-  static const String _defaultImageBaseUrl = 'http://192.168.1.13:8000/storage';
+  static const String _defaultImageBaseUrl =
+      'http://192.168.1.13:8000/storage';
   static const String _configuredImageBaseUrl = String.fromEnvironment(
     'IMAGE_BASE_URL',
     defaultValue: _defaultImageBaseUrl,
@@ -160,11 +163,11 @@ class ApiService {
   static List<String> _candidateBaseUrls() {
     final urls = <String>[_configuredBaseUrl];
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && _configuredBaseUrl == _defaultBaseUrl) {
       for (final url in [
+        _lanBaseUrl,
         _androidReverseBaseUrl,
         _androidEmulatorFallbackBaseUrl,
-        _lanBaseUrl,
       ]) {
         if (!urls.contains(url)) {
           urls.add(url);
@@ -176,13 +179,16 @@ class ApiService {
 
     return urls;
   }
+
   static Future<http.Response> _post(
     String path,
     Map<String, dynamic> payload,
   ) async {
+    final attemptedUrls = <String>[];
     ApiException? lastNetworkError;
 
     for (final baseUrl in _candidateBaseUrls()) {
+      attemptedUrls.add('$baseUrl$path');
       try {
         return await http
             .post(
@@ -193,21 +199,23 @@ class ApiService {
             .timeout(_requestTimeout);
       } on SocketException {
         lastNetworkError = ApiException(
-          'Could not connect to $baseUrl. The app will try another development path if one is available.',
+          'Could not connect to $baseUrl. URLs tried: ${attemptedUrls.join(', ')}',
         );
       } on TimeoutException {
         lastNetworkError = ApiException(
-          'El servidor tardo demasiado en responder ($baseUrl$path).',
+          'El servidor tardo demasiado en responder ($baseUrl$path). URLs probadas: ${attemptedUrls.join(', ')}',
         );
       } on http.ClientException catch (e) {
         lastNetworkError = ApiException(
-          'Error de red en $baseUrl: ${e.message}',
+          'Error de red en $baseUrl: ${e.message}. URLs probadas: ${attemptedUrls.join(', ')}',
         );
       }
     }
 
     throw lastNetworkError ??
-        ApiException('The request could not be completed.');
+        ApiException(
+          'The request could not be completed. URLs tried: ${attemptedUrls.join(', ')}',
+        );
   }
 
   static Future<Map<String, dynamic>> getCategories() async {
@@ -231,27 +239,33 @@ class ApiService {
   }
 
   static Future<http.Response> _get(String path) async {
+    final attemptedUrls = <String>[];
     ApiException? lastNetworkError;
 
     for (final baseUrl in _candidateBaseUrls()) {
+      attemptedUrls.add('$baseUrl$path');
       try {
         return await http
             .get(Uri.parse('$baseUrl$path'), headers: _headers)
             .timeout(_requestTimeout);
       } on SocketException {
-        lastNetworkError = ApiException('No se pudo conectar a $baseUrl.');
+        lastNetworkError = ApiException(
+          'No se pudo conectar a $baseUrl. URLs probadas: ${attemptedUrls.join(', ')}',
+        );
       } on TimeoutException {
         lastNetworkError = ApiException(
-          'El servidor tardó demasiado en responder ($baseUrl$path).',
+          'El servidor tardo demasiado en responder ($baseUrl$path). URLs probadas: ${attemptedUrls.join(', ')}',
         );
       } on http.ClientException catch (e) {
         lastNetworkError = ApiException(
-          'Error de red en $baseUrl: ${e.message}',
+          'Error de red en $baseUrl: ${e.message}. URLs probadas: ${attemptedUrls.join(', ')}',
         );
       }
     }
 
     throw lastNetworkError ??
-        ApiException('No se pudo completar la solicitud.');
+        ApiException(
+          'No se pudo completar la solicitud. URLs probadas: ${attemptedUrls.join(', ')}',
+        );
   }
 }

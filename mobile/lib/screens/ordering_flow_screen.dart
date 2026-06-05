@@ -266,6 +266,7 @@ class _OrderingFlowScreenState extends State<OrderingFlowScreen> {
             basePrice: price,
             image: item['image'],
             categoryId: item['category_id'],
+            options: item['options'] ?? [],
           ),
         ),
       ),

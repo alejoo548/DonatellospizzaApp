@@ -9,6 +9,7 @@ class ProductDetailScreen extends StatefulWidget {
   final double basePrice;
   final String? image;
   final int? categoryId;
+  final List<dynamic> options;
 
   const ProductDetailScreen({
     super.key,
@@ -18,6 +19,7 @@ class ProductDetailScreen extends StatefulWidget {
     this.basePrice = 24.00,
     this.image,
     this.categoryId,
+    this.options = const [],
   });
 
   @override
@@ -25,33 +27,31 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _selectedSize = 1; // 0=Personal, 1=Medium, 2=Turtle XL
+  int _selectedSize = 0; // 0=Personal, 1=Medium, 2=Turtle XL
   int _selectedCrust = 0; // 0=NYC Thin, 1=Sewer Deep Dish
   int _quantity = 1;
   bool _isFavorite = false;
-  bool get _isPizzaCategory => widget.categoryId == 2;
 
-  static const _sizes = [
-    (label: 'Personal', sub: '10"', extra: 0.0),
-    (label: 'Medium', sub: '14"', extra: 0.0),
-    (label: 'Turtle Size', sub: '18" XL', extra: 4.0),
-  ];
+  List<dynamic> get _sizes =>
+    widget.options.where((o) => o['type'] == 'size').toList();
 
-  static const _crusts = [
-    (label: 'NYC Thin Crust', extra: 0.0),
-    (label: 'Sewer-Deep Dish', extra: 3.0),
-  ];
+List<dynamic> get _crusts =>
+    widget.options.where((o) => o['type'] == 'crust').toList();
+
+bool get _hasSizes => _sizes.isNotEmpty;
+bool get _hasCrusts => _crusts.isNotEmpty;
 
   double get _total {
-    if (!_isPizzaCategory) {
-      return widget.basePrice * _quantity;
-    }
+  final sizeExtra = _hasSizes
+      ? double.parse(_sizes[_selectedSize]['extra_price'].toString())
+      : 0.0;
 
-    return (widget.basePrice +
-            _sizes[_selectedSize].extra +
-            _crusts[_selectedCrust].extra) *
-        _quantity;
-  }
+  final crustExtra = _hasCrusts
+      ? double.parse(_crusts[_selectedCrust]['extra_price'].toString())
+      : 0.0;
+
+  return (widget.basePrice + sizeExtra + crustExtra) * _quantity;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -100,12 +100,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       children: [
                         _buildProductInfo(),
                         const SizedBox(height: 28),
-                        if (_isPizzaCategory) ...[
-                          _buildSizeSelector(),
-                          const SizedBox(height: 24),
-                          _buildCrustSelector(),
-                          const SizedBox(height: 24),
-                        ],
+                        if (_hasSizes) ...[
+  _buildSizeSelector(),
+  const SizedBox(height: 24),
+],
+
+if (_hasCrusts) ...[
+  _buildCrustSelector(),
+  const SizedBox(height: 24),
+],
                         _buildQuantityControl(),
                         const SizedBox(height: 16),
                       ],
@@ -195,165 +198,161 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildSizeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabel('Size'),
-        const SizedBox(height: 10),
-        Row(
-          children: List.generate(_sizes.length, (i) {
-            final s = _sizes[i];
-            final selected = _selectedSize == i;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedSize = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: EdgeInsets.only(right: i < _sizes.length - 1 ? 8 : 0),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primaryFixed.withValues(alpha: 0.15)
-                        : AppColors.surfaceContainer,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.primaryFixed
-                          : AppColors.outlineVariant.withValues(alpha: 0.3),
-                      width: selected ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.local_pizza,
-                        color: selected
-                            ? AppColors.primaryFixed
-                            : AppColors.onSurfaceVariant,
-                        size: 20 + i * 4.0,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        s.label,
-                        style: GoogleFonts.hankenGrotesk(
-                          color: selected
-                              ? AppColors.primaryFixed
-                              : AppColors.onSurface,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      Text(
-                        s.sub,
-                        style: GoogleFonts.hankenGrotesk(
-                          color: AppColors.onSurfaceVariant,
-                          fontSize: 10,
-                        ),
-                      ),
-                      if (s.extra > 0)
-                        Text(
-                          '+\$${s.extra.toStringAsFixed(0)}',
-                          style: GoogleFonts.hankenGrotesk(
-                            color: AppColors.secondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionLabel('Size'),
+      const SizedBox(height: 10),
+      Row(
+        children: List.generate(_sizes.length, (i) {
+          final s = _sizes[i];
+          final selected = _selectedSize == i;
+          final extra = double.parse(s['extra_price'].toString());
 
-  Widget _buildCrustSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabel('Crust Style'),
-        const SizedBox(height: 10),
-        ...List.generate(_crusts.length, (i) {
-          final c = _crusts[i];
-          final selected = _selectedCrust == i;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCrust = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.primaryFixed.withValues(alpha: 0.1)
-                    : AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedSize = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: EdgeInsets.only(right: i < _sizes.length - 1 ? 8 : 0),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
                   color: selected
-                      ? AppColors.primaryFixed
-                      : AppColors.outlineVariant.withValues(alpha: 0.3),
-                  width: selected ? 1.5 : 1,
+                      ? AppColors.primaryFixed.withValues(alpha: 0.15)
+                      : AppColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.primaryFixed
+                        : AppColors.outlineVariant.withValues(alpha: 0.3),
+                    width: selected ? 1.5 : 1,
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selected
-                            ? AppColors.primaryFixed
-                            : AppColors.outline,
-                        width: 1.5,
-                      ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.local_pizza,
                       color: selected
                           ? AppColors.primaryFixed
-                          : Colors.transparent,
+                          : AppColors.onSurfaceVariant,
+                      size: 20 + i * 4.0,
                     ),
-                    child: selected
-                        ? const Icon(
-                            Icons.check,
-                            color: AppColors.onPrimaryFixed,
-                            size: 11,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      c.label,
+                    const SizedBox(height: 4),
+                    Text(
+                      s['name'].toString(),
                       style: GoogleFonts.hankenGrotesk(
                         color: selected
-                            ? AppColors.onSurface
-                            : AppColors.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  if (c.extra > 0)
-                    Text(
-                      '+ \$${c.extra.toStringAsFixed(2)}',
-                      style: GoogleFonts.hankenGrotesk(
-                        color: AppColors.secondary,
+                            ? AppColors.primaryFixed
+                            : AppColors.onSurface,
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                        fontSize: 11,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                ],
+                    if (extra > 0)
+                      Text(
+                        '+\$${extra.toStringAsFixed(2)}',
+                        style: GoogleFonts.hankenGrotesk(
+                          color: AppColors.secondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );
         }),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
+  Widget _buildCrustSelector() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionLabel('Crust Style'),
+      const SizedBox(height: 10),
+      ...List.generate(_crusts.length, (i) {
+        final c = _crusts[i];
+        final selected = _selectedCrust == i;
+        final extra = double.parse(c['extra_price'].toString());
+
+        return GestureDetector(
+          onTap: () => setState(() => _selectedCrust = i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.primaryFixed.withValues(alpha: 0.1)
+                  : AppColors.surfaceContainer,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? AppColors.primaryFixed
+                    : AppColors.outlineVariant.withValues(alpha: 0.3),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.primaryFixed
+                          : AppColors.outline,
+                      width: 1.5,
+                    ),
+                    color:
+                        selected ? AppColors.primaryFixed : Colors.transparent,
+                  ),
+                  child: selected
+                      ? const Icon(
+                          Icons.check,
+                          color: AppColors.onPrimaryFixed,
+                          size: 11,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    c['name'].toString(),
+                    style: GoogleFonts.hankenGrotesk(
+                      color: selected
+                          ? AppColors.onSurface
+                          : AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                if (extra > 0)
+                  Text(
+                    '+ \$${extra.toStringAsFixed(2)}',
+                    style: GoogleFonts.hankenGrotesk(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }),
+    ],
+  );
+}
 
   Widget _buildQuantityControl() {
     return Row(
