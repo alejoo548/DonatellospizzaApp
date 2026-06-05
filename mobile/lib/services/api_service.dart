@@ -16,7 +16,7 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  static const String _ngrokBaseUrl = 'https://7cb7-168-243-233-150.ngrok-free.app/api';
+  static const String _ngrokBaseUrl = 'https://76a9-168-243-233-150.ngrok-free.app/api';
   static const String _lanBaseUrl = 'http://192.168.1.229:8010/api';
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
